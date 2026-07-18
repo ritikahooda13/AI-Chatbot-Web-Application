@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat Assistant</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        #chat-box::-webkit-scrollbar, #sidebar-list::-webkit-scrollbar { width: 6px; }
+        #chat-box::-webkit-scrollbar-track, #sidebar-list::-webkit-scrollbar-track { background: transparent; }
+        #chat-box::-webkit-scrollbar-thumb, #sidebar-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+        body.light-theme { background: #f8fafc; color: #0f172a; }
+        body.light-theme #sidebar, body.light-theme header, body.light-theme footer { background: #ffffff; border-color: #e2e8f0; }
+        body.light-theme #chat-box .bot-bubble { background: #f1f5f9; color: #0f172a; border-color: #e2e8f0; }
+        body.light-theme .conv-item { color: #334155; }
+        body.light-theme .conv-item:hover { background: #f1f5f9; }
+        body.light-theme .conv-item.active { background: #e0e7ff; }
+        body.light-theme #user-input { color: #0f172a; }
+        body.light-theme #user-input::placeholder { color: #94a3b8; }
+        body.light-theme #sidebar-search { background: #f1f5f9; color: #0f172a; }
+
+        .theme-blue { --accent: #2563eb; --accent-light: #3b82f6; }
+        .theme-violet { --accent: #7c3aed; --accent-light: #8b5cf6; }
+        .theme-emerald { --accent: #059669; --accent-light: #10b981; }
+        .theme-rose { --accent: #e11d48; --accent-light: #f43f5e; }
+
+        .accent-bg { background-color: var(--accent, #2563eb); }
+        .accent-bg:hover { background-color: var(--accent-light, #3b82f6); }
+        .accent-text { color: var(--accent-light, #3b82f6); }
+        .accent-border:focus-within { border-color: var(--accent-light, #3b82f6) !important; }
+
+        .msg-actions button { opacity: 0.55; transition: opacity 0.15s; }
+        .msg-actions button:hover { opacity: 1; }
+
+        pre { border-radius: 0.75rem; margin: 0.5rem 0; font-size: 0.8rem; overflow-x: auto; }
+        code.inline-code { background: rgba(148,163,184,0.2); padding: 0.1rem 0.4rem; border-radius: 0.35rem; font-size: 0.85em; }
+
+        .attachment-chip { animation: pop 0.15s ease; }
+        @keyframes pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        @media (max-width: 768px) {
+            #sidebar { position: fixed; z-index: 50; height: 100vh; transform: translateX(-100%); transition: transform 0.25s ease; }
+            #sidebar.open { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="theme-blue bg-slate-950 text-slate-100 min-h-screen font-sans antialiased">
+
+<div class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="w-72 bg-slate-900 border-r border-slate-800 flex flex-col flex-shrink-0">
+        <div class="p-4 border-b border-slate-800 space-y-3">
+            <button onclick="startNewConversation()" class="w-full accent-bg text-white rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-all active:scale-95">
+                <i class="fas fa-plus"></i> New Chat
+            </button>
+            <div class="relative">
+                <i class="fas fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                <input id="sidebar-search" type="text" placeholder="Search chats..."
+                    class="w-full bg-slate-800 text-slate-100 placeholder-slate-500 text-sm rounded-lg pl-8 pr-3 py-2 focus:outline-none">
+            </div>
+        </div>
+        <div id="sidebar-list" class="flex-1 overflow-y-auto px-2 py-2 space-y-1"></div>
+        <div class="p-4 border-t border-slate-800">
+            <div class="flex items-center justify-between mb-3 px-1">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Theme Color</span>
+            </div>
+            <div class="flex gap-2 px-1 mb-4">
+                <button onclick="setThemeColor('blue')" class="w-6 h-6 rounded-full bg-blue-600 ring-2 ring-offset-2 ring-offset-slate-900 ring-transparent hover:ring-blue-400"></button>
+                <button onclick="setThemeColor('violet')" class="w-6 h-6 rounded-full bg-violet-600 ring-2 ring-offset-2 ring-offset-slate-900 ring-transparent hover:ring-violet-400"></button>
+                <button onclick="setThemeColor('emerald')" class="w-6 h-6 rounded-full bg-emerald-600 ring-2 ring-offset-2 ring-offset-slate-900 ring-transparent hover:ring-emerald-400"></button>
+                <button onclick="setThemeColor('rose')" class="w-6 h-6 rounded-full bg-rose-600 ring-2 ring-offset-2 ring-offset-slate-900 ring-transparent hover:ring-rose-400"></button>
+            </div>
+            <div class="flex items-center justify-between px-1 py-2 rounded-lg bg-slate-800/50">
+                <span class="text-xs font-semibold text-slate-300 flex items-center gap-2"><i class="fas fa-user-circle"></i> {{ username }}</span>
+                <a href="{{ url_for('logout') }}" title="Logout" class="text-slate-400 hover:text-red-400 transition-colors"><i class="fas fa-right-from-bracket"></i></a>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Panel -->
+    <div class="flex-1 flex flex-col min-w-0">
+        <!-- Header -->
+        <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-30 px-4 md:px-6 py-4 flex items-center justify-between shadow-lg">
+            <div class="flex items-center space-x-3">
+                <button id="sidebar-toggle" class="md:hidden text-slate-300 mr-1"><i class="fas fa-bars text-lg"></i></button>
+                <div class="bg-gradient-to-tr from-blue-600 to-violet-600 p-2.5 rounded-xl shadow-lg shadow-blue-500/20">
+                    <i class="fas fa-robot text-xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg md:text-xl font-black tracking-wider bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">AI Chat Assistant</h1>
+                    <p class="text-xs text-emerald-400 flex items-center mt-0.5 font-semibold">
+                        <span class="h-2 w-2 bg-emerald-500 rounded-full inline-block mr-1.5 animate-pulse"></span>
+                        Online
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="downloadChatTxt()" title="Download as .txt" class="text-slate-400 hover:text-white transition-colors"><i class="fas fa-file-lines text-lg"></i></button>
+                <button onclick="downloadChatPdf()" title="Download as .pdf" class="text-slate-400 hover:text-white transition-colors"><i class="fas fa-file-pdf text-lg"></i></button>
+                <button id="theme-toggle" title="Toggle dark/light mode" class="text-slate-400 hover:text-white transition-colors"><i id="theme-icon" class="fas fa-sun text-lg"></i></button>
+            </div>
+        </header>
+
+        <!-- Chat Area -->
+        <main id="chat-box" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4"></main>
+
+        <!-- Input Bar -->
+        <footer class="p-4 bg-slate-900/40 border-t border-slate-800 backdrop-blur-md">
+            <div class="max-w-4xl mx-auto">
+                <div id="attachment-preview" class="hidden attachment-chip mb-2 inline-flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-300">
+                    <i id="attachment-icon" class="fas fa-paperclip"></i>
+                    <span id="attachment-name"></span>
+                    <button onclick="clearAttachment()" class="text-slate-500 hover:text-red-400 ml-1"><i class="fas fa-xmark"></i></button>
+                </div>
+                <div class="flex items-center space-x-2 bg-slate-900 border border-slate-800 rounded-2xl p-2 accent-border transition-all duration-300 shadow-2xl">
+                    <input type="file" id="file-input" accept=".pdf,image/png,image/jpeg,image/webp" class="hidden">
+                    <button id="attach-btn" title="Attach file (image or PDF)" class="text-slate-400 hover:accent-text px-2 transition-colors">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <button id="mic-btn" title="Voice input" class="text-slate-400 hover:accent-text px-2 transition-colors">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <input
+                        type="text"
+                        id="user-input"
+                        placeholder="Ask anything..."
+                        class="flex-1 bg-transparent placeholder-slate-500 text-sm focus:outline-none px-1 py-2.5"
+                        autocomplete="off"
+                    >
+                    <button
+                        onclick="sendMessage()"
+                        class="accent-bg active:scale-95 text-white rounded-xl px-5 py-2.5 transition-all flex items-center justify-center shadow-lg"
+                    >
+                        <i class="fas fa-paper-plane text-sm"></i>
+                    </button>
+                </div>
+            </div>
+        </footer>
+    </div>
+</div>
+
+<script>
+    const chatBox = document.getElementById('chat-box');
+    const userInput = document.getElementById('user-input');
+    const sidebarList = document.getElementById('sidebar-list');
+    const sidebar = document.getElementById('sidebar');
+    const fileInput = document.getElementById('file-input');
+    const attachBtn = document.getElementById('attach-btn');
+    const attachmentPreview = document.getElementById('attachment-preview');
+    const attachmentName = document.getElementById('attachment-name');
+    const attachmentIcon = document.getElementById('attachment-icon');
+    const sidebarSearch = document.getElementById('sidebar-search');
+
+    let currentConversationId = null;
+    let pendingAttachment = null; // {type, filename, content}
+
+    // ---------------- Formatting (with code block + inline code support) ----------------
+    function escapeHTML(text) {
+        return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function formatAIResponse(text) {
+        // Extract fenced code blocks first so we don't mangle them
+        const codeBlocks = [];
+        let working = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (match, lang, code) => {
+            const idx = codeBlocks.length;
+            codeBlocks.push({ lang: lang || 'plaintext', code: code.replace(/\n$/, '') });
+            return `@@CODEBLOCK${idx}@@`;
+        });
+
+        working = escapeHTML(working)
+            .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+            .replace(/\n/g, '<br>');
+
+        codeBlocks.forEach((block, idx) => {
+            const escapedCode = escapeHTML(block.code);
+            const html = `<pre><code class="language-${block.lang}">${escapedCode}</code></pre>`;
+            working = working.replace(`@@CODEBLOCK${idx}@@`, html);
+        });
+
+        return working;
+    }
+
+    function appendMessage(sender, text, isAI = false) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4`;
+        const bubbleId = 'msg-' + Math.random().toString(36).slice(2);
+        msgDiv.innerHTML = `
+            <div class="flex items-end ${sender === 'user' ? 'flex-row-reverse' : 'flex-row'} max-w-[85%] md:max-w-[75%]">
+                <div class="flex items-center justify-center w-8 h-8 rounded-full ${sender === 'user' ? 'accent-bg ml-2' : 'bg-slate-700 mr-2'} flex-shrink-0">
+                    <i class="fas ${sender === 'user' ? 'fa-user' : 'fa-robot'} text-xs text-white"></i>
+                </div>
+                <div>
+                    <div id="${bubbleId}" class="p-4 rounded-2xl ${sender === 'user' ? 'accent-bg text-white rounded-tr-none' : 'bot-bubble bg-slate-800 text-slate-100 rounded-tl-none border border-slate-700/30'} text-sm shadow-md leading-relaxed break-words">
+                        ${isAI ? formatAIResponse(text) : escapeHTML(text).replace(/\n/g, '<br>')}
+                    </div>
+                    ${sender === 'bot' ? `<div class="msg-actions flex gap-3 mt-1 ml-1 text-xs text-slate-500">
+                        <button onclick="speakText('${bubbleId}')" title="Listen"><i class="fas fa-volume-high"></i></button>
+                        <button onclick="copyText('${bubbleId}')" title="Copy"><i class="fas fa-copy"></i></button>
+                    </div>` : ''}
+                </div>
+            </div>
+        `;
+        chatBox.appendChild(msgDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        if (isAI && window.hljs) {
+            msgDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+        }
+    }
+
+    function showWelcome() {
+        chatBox.innerHTML = '';
+        appendMessage('bot', 'Hello! I am your intelligent AI Assistant. How can I assist you with your queries today?', true);
+    }
+
+    // ---------------- Text-to-Speech ----------------
+    function speakText(bubbleId) {
+        const el = document.getElementById(bubbleId);
+        if (!el || !window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(el.innerText);
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function copyText(bubbleId) {
+        const el = document.getElementById(bubbleId);
+        if (!el) return;
+        navigator.clipboard.writeText(el.innerText);
+    }
+
+    // ---------------- File attach ----------------
+    attachBtn.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        attachmentName.textContent = 'Uploading...';
+        attachmentPreview.classList.remove('hidden');
+        attachmentIcon.className = 'fas fa-spinner fa-spin';
+
+        fetch('/upload', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    attachmentPreview.classList.add('hidden');
+                    alert(data.error);
+                    return;
+                }
+                pendingAttachment = data;
+                attachmentName.textContent = data.filename;
+                attachmentIcon.className = data.type === 'image' ? 'fas fa-image' : 'fas fa-file-pdf';
+            })
+            .catch(() => {
+                attachmentPreview.classList.add('hidden');
+                alert('Could not upload the file. Please try again.');
+            });
+
+        fileInput.value = '';
+    });
+
+    function clearAttachment() {
+        pendingAttachment = null;
+        attachmentPreview.classList.add('hidden');
+    }
+
+    // ---------------- Sending messages ----------------
+    function sendMessage() {
+        const message = userInput.value.trim();
+        if (!message && !pendingAttachment) return;
+
+        let displayText = message;
+        if (pendingAttachment) displayText += (displayText ? '\n' : '') + `📎 ${pendingAttachment.filename}`;
+        appendMessage('user', displayText);
+        userInput.value = '';
+
+        const attachmentToSend = pendingAttachment;
+        clearAttachment();
+
+        const loadingDiv = document.createElement('div');
+        loadingDiv.id = 'typing-indicator';
+        loadingDiv.className = 'flex justify-start mb-4';
+        loadingDiv.innerHTML = `
+            <div class="flex items-end max-w-[75%]">
+                <div class="flex items-center justify-center w-8 h-8 rounded-full bg-slate-700 mr-2 flex-shrink-0">
+                    <i class="fas fa-robot text-xs text-white"></i>
+                </div>
+                <div class="p-4 rounded-2xl bot-bubble bg-slate-800/80 text-slate-400 rounded-tl-none text-sm border border-slate-700/20 flex items-center space-x-1.5 shadow-md">
+                    <span class="text-xs font-medium tracking-wide animate-pulse">Assistant is typing</span>
+                    <span class="flex space-x-1">
+                        <span class="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                        <span class="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                        <span class="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce"></span>
+                    </span>
+                </div>
+            </div>
+        `;
+        chatBox.appendChild(loadingDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        fetch('/get_response', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: message, conversation_id: currentConversationId, attachment: attachmentToSend })
+        })
+        .then(res => res.json())
+        .then(data => {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) indicator.remove();
+            appendMessage('bot', data.response, true);
+            if (data.conversation_id && data.conversation_id !== currentConversationId) {
+                currentConversationId = data.conversation_id;
+            }
+            loadConversations();
+        })
+        .catch(() => {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) indicator.remove();
+            appendMessage('bot', 'Oops! Kuch network issue lag raha hai. Please check connection.');
+        });
+    }
+
+    userInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') sendMessage();
+    });
+
+    // ---------------- Conversation history + search ----------------
+    function renderConversationList(convs) {
+        sidebarList.innerHTML = '';
+        if (convs.length === 0) {
+            sidebarList.innerHTML = `<p class="text-xs text-slate-500 text-center mt-4">No conversations found.</p>`;
+            return;
+        }
+        convs.forEach(conv => {
+            const item = document.createElement('div');
+            item.className = `conv-item group flex items-center justify-between px-3 py-2.5 rounded-lg text-sm text-slate-300 hover:bg-slate-800 cursor-pointer transition-colors ${conv.id === currentConversationId ? 'active bg-slate-800' : ''}`;
+            item.innerHTML = `
+                <span class="truncate flex-1"><i class="fas fa-message text-xs mr-2 opacity-60"></i>${escapeHTML(conv.title)}</span>
+                <button class="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 ml-2 transition-opacity" onclick="event.stopPropagation(); deleteConversation(${conv.id})">
+                    <i class="fas fa-trash text-xs"></i>
+                </button>
+            `;
+            item.addEventListener('click', () => openConversation(conv.id));
+            sidebarList.appendChild(item);
+        });
+    }
+
+    function loadConversations() {
+        fetch('/conversations')
+            .then(res => res.json())
+            .then(convs => renderConversationList(convs));
+    }
+
+    let searchTimer = null;
+    sidebarSearch.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        const q = sidebarSearch.value.trim();
+        searchTimer = setTimeout(() => {
+            if (!q) { loadConversations(); return; }
+            fetch(`/search_messages?q=${encodeURIComponent(q)}`)
+                .then(res => res.json())
+                .then(convs => renderConversationList(convs));
+        }, 250);
+    });
+
+    function openConversation(id) {
+        currentConversationId = id;
+        fetch(`/conversation/${id}`)
+            .then(res => res.json())
+            .then(data => {
+                chatBox.innerHTML = '';
+                if (!data.messages || data.messages.length === 0) {
+                    showWelcome();
+                } else {
+                    data.messages.forEach(m => appendMessage(m.sender, m.content, m.sender === 'bot'));
+                }
+                loadConversations();
+                if (window.innerWidth < 768) sidebar.classList.remove('open');
+            });
+    }
+
+    function startNewConversation() {
+        currentConversationId = null;
+        showWelcome();
+        loadConversations();
+        if (window.innerWidth < 768) sidebar.classList.remove('open');
+    }
+
+    function deleteConversation(id) {
+        fetch(`/conversation/${id}`, { method: 'DELETE' })
+            .then(() => {
+                if (id === currentConversationId) startNewConversation();
+                else loadConversations();
+            });
+    }
+
+    // ---------------- Dark / light mode ----------------
+    const themeToggle = document.getElementById('theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
+    let isLight = false;
+    themeToggle.addEventListener('click', () => {
+        isLight = !isLight;
+        document.body.classList.toggle('light-theme', isLight);
+        themeIcon.className = isLight ? 'fas fa-moon text-lg' : 'fas fa-sun text-lg';
+    });
+
+    // ---------------- Accent theme color ----------------
+    function setThemeColor(color) {
+        document.body.classList.remove('theme-blue', 'theme-violet', 'theme-emerald', 'theme-rose');
+        document.body.classList.add(`theme-${color}`);
+    }
+
+    // ---------------- Mobile sidebar toggle ----------------
+    document.getElementById('sidebar-toggle').addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+    });
+
+    // ---------------- Voice input (Web Speech API) ----------------
+    const micBtn = document.getElementById('mic-btn');
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-IN';
+        recognition.interimResults = false;
+
+        let listening = false;
+        micBtn.addEventListener('click', () => {
+            if (listening) return;
+            listening = true;
+            micBtn.classList.add('accent-text');
+            recognition.start();
+        });
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            userInput.value = transcript;
+        };
+        recognition.onend = () => {
+            listening = false;
+            micBtn.classList.remove('accent-text');
+        };
+        recognition.onerror = () => {
+            listening = false;
+            micBtn.classList.remove('accent-text');
+        };
+    } else {
+        micBtn.style.display = 'none';
+    }
+
+    // ---------------- Download chat (.txt) ----------------
+    function getChatAsLines() {
+        const lines = [];
+        chatBox.querySelectorAll(':scope > div').forEach(row => {
+            const isUser = row.classList.contains('justify-end');
+            const bubble = row.querySelector('div.flex.items-end > div > div, div.flex.items-end > div:last-child');
+            const textBubble = row.querySelector('[id^="msg-"]') || bubble;
+            if (textBubble) {
+                lines.push(`${isUser ? 'You' : 'Assistant'}: ${textBubble.innerText}`);
+            }
+        });
+        return lines;
+    }
+
+    function downloadChatTxt() {
+        const lines = getChatAsLines();
+        if (lines.length === 0) return;
+        const text = lines.join('\n\n');
+        const blob = new Blob([text], { type: 'text/plain' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'chat-history.txt';
+        link.click();
+    }
+
+    // ---------------- Download chat (.pdf) ----------------
+    function downloadChatPdf() {
+        const lines = getChatAsLines();
+        if (lines.length === 0) return;
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+        const margin = 40;
+        const maxWidth = 515;
+        let y = margin;
+
+        doc.setFontSize(16);
+        doc.text('AI Chat Assistant — Conversation', margin, y);
+        y += 25;
+        doc.setFontSize(11);
+
+        lines.forEach(line => {
+            const wrapped = doc.splitTextToSize(line, maxWidth);
+            wrapped.forEach(w => {
+                if (y > 780) { doc.addPage(); y = margin; }
+                doc.text(w, margin, y);
+                y += 16;
+            });
+            y += 6;
+        });
+
+        doc.save('chat-history.pdf');
+    }
+
+    // ---------------- Init ----------------
+    loadConversations();
+    showWelcome();
+</script>
+</body>
+</html>

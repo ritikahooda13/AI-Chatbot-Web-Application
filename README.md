@@ -17,14 +17,9 @@ A full-stack AI chatbot web application built with **Flask (Python)**, **SQLite*
 - 🌓 Dark / Light mode toggle
 - 🎨 Multiple accent color themes (blue, violet, emerald, rose)
 - 🎙️ Voice input (browser Speech Recognition API)
-- 🔊 Text-to-speech — click the speaker icon on any bot reply to hear it read aloud
-- 📎 File upload — attach an image or PDF and ask questions about it (vision + PDF text extraction)
-- 💻 Code syntax highlighting for any code the AI returns
-- 🔎 Search across all past chats from the sidebar
 - 💾 Database integration (SQLite — users, conversations, messages)
-- ⬇️ Download / export chat as `.txt` or `.pdf`
+- ⬇️ Download / export chat as a `.txt` file
 - 🗑️ Delete individual conversations
-- 🌐 Strong multi-language support — replies in whatever language/script you write in
 - 📱 Fully responsive (collapsible sidebar on mobile)
 
 ## Project Structure
@@ -67,3 +62,8 @@ ai-chatbot/
 - Every message (user + bot) is saved to the `messages` table, linked to a `conversations` row, which is linked to the logged-in `user`.
 - The sidebar loads all of a user's past conversations from `/conversations`, and clicking one loads its full message history from `/conversation/<id>`.
 
+## Notes for Submission
+
+- Take screenshots of: login page, chat interface (dark + light mode), and the sidebar with multiple conversations.
+- Push this folder to a GitHub repository.
+- For a live hosted link, this can be deployed on platforms like Render, PythonAnywhere, or Railway (any that support Flask + SQLite).
