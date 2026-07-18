@@ -54,16 +54,3 @@ ai-chatbot/
    ```
 
 4. Sign up for a new account, then start chatting!
-
-## How It Works
-
-- The frontend sends the user's message to `/get_response` via `fetch()`.
-- The Flask backend forwards the message to the free **Pollinations AI** text API and gets a reply.
-- Every message (user + bot) is saved to the `messages` table, linked to a `conversations` row, which is linked to the logged-in `user`.
-- The sidebar loads all of a user's past conversations from `/conversations`, and clicking one loads its full message history from `/conversation/<id>`.
-
-## Notes for Submission
-
-- Take screenshots of: login page, chat interface (dark + light mode), and the sidebar with multiple conversations.
-- Push this folder to a GitHub repository.
-- For a live hosted link, this can be deployed on platforms like Render, PythonAnywhere, or Railway (any that support Flask + SQLite).
